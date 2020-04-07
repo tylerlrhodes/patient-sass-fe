@@ -5,35 +5,21 @@ from flask import Markup
 from flask import render_template
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.sql import text
+from init import create_app
+from model import db
+import dbhelper
 
-app = Flask(__name__)
 
-# Configure MySQL connection.
-db = SQLAlchemy()
-db_uri = 'mysql://root:supersecure@db/information_schema'
-app.config['SQLALCHEMY_DATABASE_URI'] = db_uri
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-db.init_app(app)
+app = create_app()
 
 @app.route("/")
 def test():
     mysql_result = False
-    query_string = text("SELECT 1")
-    # TODO REMOVE FOLLOWING LINE AFTER TESTING COMPLETE.
-    db.session.query("1").from_statement(query_string).all()
-    try:
-        if db.session.query("1").from_statement(query_string).all():
-            mysql_result = True
-    except:
-        pass
-
-    if mysql_result:
-        result = Markup('<span style="color: green;">PASS</span>')
-    else:
-        result = Markup('<span style="color: red;">FAIL</span>')
+    query_string = text("select concat(table_schema,'.',table_name) from information_schema.tables where table_schema = 'patient_sass'")
+    rows = db.engine.execute(query_string)
 
     # Return the page with the result.
-    return render_template('index.html', result=result)
+    return render_template('db-test.html', rows=rows)
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=80)

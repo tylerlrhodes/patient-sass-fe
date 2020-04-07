@@ -1,18 +1,22 @@
 version: '2'
 services:
-
+  www-base:
+    build: www-base/.
+    container_name: www-base
   www:
-    build: www/.
+    build:
+      context: www/.
+
     ports:
       - "80:80"
     links:
       - db
     depends_on:
       - db
+    env_file: db.conf
 
   db:
     build: db/.
     volumes:
       - /var/lib/mysql
-    environment:
-       MYSQL_ROOT_PASSWORD: supersecure
+    env_file: db.conf
