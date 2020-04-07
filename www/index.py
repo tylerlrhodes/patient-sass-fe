@@ -1,16 +1,33 @@
 # Infrastructure test page.
 import os
+import random
 from flask import Flask
 from flask import Markup
 from flask import render_template
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.sql import text
 from init import create_app
-from model import db
+from model import db,User,Patient
 import dbhelper
 
 
 app = create_app()
+
+db = SQLAlchemy(app)
+db.create_all()
+
+
+@app.route("/test_db")
+def test_db():
+    n = random.randint(0, 10000)
+    str = f'abc{n}'
+    p = Patient(name=str)
+    db.session.add(p)
+    db.session.commit()
+    for p in Patient.query.all():
+        str += p.__repr__() + "<br />"
+    result = Markup(f'<span style="color: green;">Init DB<br />{str}</span>')
+    return render_template('test-patient.html', result=result)
 
 @app.route("/")
 def test():

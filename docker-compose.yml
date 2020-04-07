@@ -8,7 +8,7 @@ services:
       context: www/.
 
     ports:
-      - "80:80"
+      - "8001:80"
     links:
       - db
     depends_on:
@@ -17,6 +17,8 @@ services:
 
   db:
     build: db/.
+    ports:
+      - "3307:3306"
     volumes:
       - /var/lib/mysql
     env_file: db.conf
