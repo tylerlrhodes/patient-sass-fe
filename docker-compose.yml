@@ -11,6 +11,7 @@ services:
       - "8001:80"
     links:
       - db
+      - www-base
     depends_on:
       - db
     env_file: db.conf
