@@ -3,6 +3,7 @@ services:
   www-base:
     build: www-base/.
     container_name: www-base
+    image: patient-sass-base
   www:
     build:
       context: www/.
