@@ -19,7 +19,7 @@ db.create_all()
 
 @app.route("/test_vue")
 def test_vue():
-    return render_template('vue.html')
+    return render_template('vue.html', name="vue-test")
 
 @app.route("/test_db")
 def test_db():
