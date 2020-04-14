@@ -17,6 +17,10 @@ db = SQLAlchemy(app)
 db.create_all()
 
 
+@app.route("/test_vue")
+def test_vue():
+    return render_template('vue.html', name="vue-test")
+
 @app.route("/test_db")
 def test_db():
     n = random.randint(0, 10000)

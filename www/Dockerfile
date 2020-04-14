@@ -1,4 +1,4 @@
-FROM patientsassfe_www-base
+FROM patient-sass-base
 # Place app in container.
 COPY . /opt/www
 WORKDIR /opt/www
