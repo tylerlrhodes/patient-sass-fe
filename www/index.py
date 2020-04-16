@@ -2,14 +2,15 @@
 import os
 import random
 from flask import Flask
+from flask import request
 from flask import Markup
 from flask import render_template
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.sql import text
 from init import create_app
-from model import db,User,Patient
+import model
 import dbhelper
-
+import datetime
 
 app = create_app()
 
@@ -25,10 +26,10 @@ def test_vue():
 def test_db():
     n = random.randint(0, 10000)
     str = f'abc{n}'
-    p = Patient(name=str)
+    p = model.Patient(name=str)
     db.session.add(p)
     db.session.commit()
-    for p in Patient.query.all():
+    for p in model.Patient.query.all():
         str += p.__repr__() + "<br />"
     result = Markup(f'<span style="color: green;">Init DB<br />{str}</span>')
     return render_template('test-patient.html', result=result)
@@ -42,5 +43,11 @@ def test():
     # Return the page with the result.
     return render_template('db-test.html', rows=rows)
 
+@app.route("/acess-point",methods=["POST"])
+def apiAccess():
+    content = request.get_json().get("data")
+    myDict,myTable = dbhelper.convert_json(db,model,content)
+    dbhelper.add_instance(myTable,**myDict)
+    return str("Ok")
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=80)
+    app.run(host="0.0.0.0", port=80 ,debug=True)
