@@ -4,13 +4,21 @@ import random
 from flask import Flask
 from flask import request
 from flask import Markup
-from flask import render_template
+from flask import render_template,jsonify,make_response
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.sql import text
 from init import create_app
 import model
 import dbhelper
 import datetime
+import json
+import sqlalchemy.exc
+
+def mk_error(msg, code):
+    return make_response({"msg" : msg}, code)
+
+def mk_rsp(rsp_o, code=200):
+    return make_response(jsonify(rsp_o), code)
 
 app = create_app()
 
@@ -42,17 +50,46 @@ def test():
     # Return the page with the result.
     return render_template('db-test.html', rows=rows)
 
-@app.route("/access-point",methods=["POST"])
-def apiAccess():
-    content = request.get_json().get("data")
-    myDict,myTable,operation,ide = dbhelper.convert_json(db,model,content)
-    if operation == "insert":
-        dbhelper.add_instance(myTable,**myDict)
-    elif operation == "update":
-        dbhelper.edit_instance(model = myTable,idin = ide,**myDict)
-    else:
-        return {"msg": "Operation Unknown"}, 400
-    return str(myTable.query.all()) + "" + str({"msg": "Operation Successful" , "id" : str(ide)}), 201
+# TODO: figure out access control
+# Some tables can be accessed without authentication, but for others
+# authentication is required. When authentication is required, remember
+# the credentials in HTTP session. Also for production, the server should be
+# HTTPS
+
+@app.route("/record/<table>/<id>",methods=["GET"])
+def handle_record_get(**kwargs):
+    try:
+        id = request.view_args['id']
+        table = request.view_args['table']
+        # TODO - fetch_instance should be fixed to exclude hidden columns, like password hash
+        return make_response(dbhelper.fetch_instance(table, id).to_json(), 200)
+    except Exception as e:
+        # TODO: do not assume that exception happened due to malformed request,
+        # differentiate among exceptions
+        return mk_error("Malformed request", 400)
+
+@app.route("/record",methods=["POST"])
+def handle_record_post():
+    try:
+        content = request.get_json()
+        myDict,myTable,operation = dbhelper.convert_json(db,content)
+    except:
+        # TODO: do not assume that exception happened due to malformed request,
+        # differentiate among exceptions
+        return mk_error("Malformed request", 400)
+
+    id = None
+    try:
+        if operation == "insert":
+            db_o = dbhelper.add_instance(myTable,**myDict)
+            id = db_o.id
+        elif operation == "update":
+            dbhelper.update_instance(model = myTable,**myDict)
+        else:
+            return mk_error("Unknown operation", 400)
+    except sqlalchemy.exc.IntegrityError as e:
+        return mk_error("Record already exists", 409)
+    return mk_rsp({"msg": "Operation Successful" , "id" : id}, 201)
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=80 ,debug=True)
