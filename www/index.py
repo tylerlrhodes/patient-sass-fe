@@ -17,7 +17,6 @@ app = create_app()
 db = SQLAlchemy(app)
 db.create_all()
 
-
 @app.route("/test_vue")
 def test_vue():
     return render_template('vue.html', name="vue-test")
@@ -43,11 +42,17 @@ def test():
     # Return the page with the result.
     return render_template('db-test.html', rows=rows)
 
-@app.route("/acess-point",methods=["POST"])
+@app.route("/access-point",methods=["POST"])
 def apiAccess():
     content = request.get_json().get("data")
-    myDict,myTable = dbhelper.convert_json(db,model,content)
-    dbhelper.add_instance(myTable,**myDict)
-    return str("Ok")
+    myDict,myTable,operation,ide = dbhelper.convert_json(db,model,content)
+    if operation == "insert":
+        dbhelper.add_instance(myTable,**myDict)
+    elif operation == "update":
+        dbhelper.edit_instance(model = myTable,idin = ide,**myDict)
+    else:
+        return {"msg": "Operation Unknown"}, 400
+    return str(myTable.query.all()) + "" + str({"msg": "Operation Successful" , "id" : str(ide)}), 201
+
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=80 ,debug=True)
