@@ -1,9 +1,10 @@
 from flask import Flask
 
-from model import db
+from model import db,Symptom
 import config
 import logging
 import time
+import json
 
 log = logging.getLogger(__name__)
 MAX_CONNECT_TRIES = 3
@@ -27,3 +28,16 @@ def create_app():
         time.sleep(SLEEP_TIME)
 
     return flask_app
+
+def load_symptoms():
+  n = db.engine.execute("select count(*) from symptom").scalar()
+  if n:
+    return
+  with open('symptoms_data.json') as f:
+    data = json.load(f)
+    recs = [Symptom(**s) for s in data["symptoms"]]
+    db.session.add_all(recs)
+    db.session.commit()
+
+def load_init_data():
+  load_symptoms()
