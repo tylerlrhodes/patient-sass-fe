@@ -2,21 +2,28 @@
 import os
 import random
 from flask import Flask
+from flask import request
 from flask import Markup
-from flask import render_template
+from flask import render_template,jsonify,make_response
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.sql import text
-from init import create_app,load_init_data
-from model import db,User,Patient,Symptom
+from init import create_app
+import model
 import dbhelper
+import datetime
+import json
+import sqlalchemy.exc
 
+def mk_error(msg, code):
+    return make_response({"msg" : msg}, code)
+
+def mk_rsp(rsp_o, code=200):
+    return make_response(jsonify(rsp_o), code)
 
 app = create_app()
 
 db = SQLAlchemy(app)
 db.create_all()
-load_init_data()
-
 
 @app.route("/test_vue")
 def test_vue():
@@ -26,22 +33,15 @@ def test_vue():
 def test_db():
     n = random.randint(0, 10000)
     str = f'abc{n}'
-    p = Patient(name=str)
+    p = model.Patient(name=str)
     db.session.add(p)
     db.session.commit()
-    for p in Patient.query.all():
+    for p in model.Patient.query.all():
         str += p.__repr__() + "<br />"
     result = Markup(f'<span style="color: green;">Init DB<br />{str}</span>')
     return render_template('test-patient.html', result=result)
 
 @app.route("/")
-@app.route("/symptoms")
-def handle_symptoms():
-  symptoms_json_arr = [s.to_json() for s in Symptom.query.all()]
-  symptoms_json = "[" + ",".join(symptoms_json_arr) + "]"
-  return render_template('vue.html', name="symptoms", symptoms_json=symptoms_json)
-
-@app.route("/test-tables")
 def test():
     mysql_result = False
     query_string = text("select concat(table_schema,'.',table_name) from information_schema.tables where table_schema = 'patient_sass'")
@@ -50,5 +50,46 @@ def test():
     # Return the page with the result.
     return render_template('db-test.html', rows=rows)
 
+# TODO: figure out access control
+# Some tables can be accessed without authentication, but for others
+# authentication is required. When authentication is required, remember
+# the credentials in HTTP session. Also for production, the server should be
+# HTTPS
+
+@app.route("/record/<table>/<id>",methods=["GET"])
+def handle_record_get(**kwargs):
+    try:
+        id = request.view_args['id']
+        table = request.view_args['table']
+        # TODO - fetch_instance should be fixed to exclude hidden columns, like password hash
+        return make_response(dbhelper.fetch_instance(table, id).to_json(), 200)
+    except Exception as e:
+        # TODO: do not assume that exception happened due to malformed request,
+        # differentiate among exceptions
+        return mk_error("Malformed request", 400)
+
+@app.route("/record",methods=["POST"])
+def handle_record_post():
+    try:
+        content = request.get_json()
+        myDict,myTable,operation = dbhelper.convert_json(db,content)
+    except:
+        # TODO: do not assume that exception happened due to malformed request,
+        # differentiate among exceptions
+        return mk_error("Malformed request", 400)
+
+    id = None
+    try:
+        if operation == "insert":
+            db_o = dbhelper.add_instance(myTable,**myDict)
+            id = db_o.id
+        elif operation == "update":
+            dbhelper.update_instance(model = myTable,**myDict)
+        else:
+            return mk_error("Unknown operation", 400)
+    except sqlalchemy.exc.IntegrityError as e:
+        return mk_error("Record already exists", 409)
+    return mk_rsp({"msg": "Operation Successful" , "id" : id}, 201)
+
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=80)
+    app.run(host="0.0.0.0", port=80 ,debug=True)
